@@ -65,7 +65,7 @@ end
 # the fitting routine: KNN regression, either local linear
 # (default) or local constant, weighted by importance sampling
 # weights from the AIS density
-function AIS_fit(Zn, nParticles, multiples, StopCriterion, AISdraws, nn="default", whichfit="ll")
+function AIS_fit(Zn, nParticles, multiples, StopCriterion, AISdraws, nn="default", whichfit="ll", mix=1.)
     # neighbors
     if nn=="default"
         neighbors = round(Int, 5.0*AISdraws^0.25)
@@ -78,7 +78,11 @@ function AIS_fit(Zn, nParticles, multiples, StopCriterion, AISdraws, nn="default
     thetas = zeros(AISdraws, size(particles,2))
     Zs = zeros(AISdraws, size(Zn,2))
     @inbounds for i = 1:AISdraws
-        thetas[i,:] = sample_from_AIS(particles)
+        if rand() < mix
+            thetas[i,:] = sample_from_AIS(particles)
+        else    
+            thetas[i,:] = sample_from_prior()
+        end
         Zs[i,:] = aux_stat(thetas[i,:],otherargs)
     end    
     # compute scaling limiting outliers
@@ -102,12 +106,12 @@ function AIS_fit(Zn, nParticles, multiples, StopCriterion, AISdraws, nn="default
     distances = distances[selected,:]
     Zs = Zs[selected,:]
     # do the AIS weighting, and drop out-of-support draws
-    AISweights = prior(thetas) ./ AIS_density(thetas,particles)
+    AISweights = prior(thetas) ./ ((1. - mix)*prior(thetas) + mix*AIS_density(thetas, particles));
     test = (AISweights .> 0.)
     thetas = thetas[test[:,1],:] # the nearest neighbors
     distances = distances[test[:,1],:]
     Zs = Zs[test[:,1],:]
-    AISweights = AISweights[test[:,1],:] 
+    AISweights = AISweights[test[:,1],:]
     # overall weights are AIS times kernel weight
     m = maximum(distances)
     if m > 0
@@ -115,7 +119,6 @@ function AIS_fit(Zn, nParticles, multiples, StopCriterion, AISdraws, nn="default
     else
         weight = 0.
     end    
-    weight = AISweights.*pdf(Normal(),weight)
     weight = weight/sum(weight)
     # compute estimator: default is local linear, but local constant or both are available
     if whichfit=="lc"

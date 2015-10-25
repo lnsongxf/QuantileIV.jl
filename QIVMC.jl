@@ -11,10 +11,11 @@ function QIVWrapper()
     Zn = [0. 0. 0.];
     nParticles = 500 # particles to keep per iter
     multiples = 5  # particles tried is this multiple of particle kept
-    StopCriterion = 0.1 # stop when proportion of new particles accepted is below this
-    AISdraws = 1000
-    neighbors = 1000
-    contrib = AIS_fit(Zn, nParticles, multiples, StopCriterion, AISdraws, neighbors, "both")
+    StopCriterion = 0.2 # stop when proportion of new particles accepted is below this
+    AISdraws = 10000
+    neighbors = 10000
+    mix = 0.5 # proportion drawn from AIS, rest is from prior
+    contrib = AIS_fit(Zn, nParticles, multiples, StopCriterion, AISdraws, neighbors, "both", mix)
 end
 
 # the monitoring function
