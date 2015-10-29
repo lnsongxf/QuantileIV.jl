@@ -4,11 +4,9 @@
 # using the interior point method from QuantileRegression package
 include(Pkg.dir()"/QuantileRegression/src/InteriorPoint.jl") 
 
-using Distributions, Base.LinAlg.BLAS
+using Base.LinAlg.BLAS
 
-function LocalPolynomial(y, X, x0, h, do_median=false, do_ci=false, order=1)
-weights = prod(pdf(Normal(),(X.-x)/h),2) # standard normal product kernel
-weights = weights/sum(weights)
+function LocalPolynomial(y, X, x0, weights, do_median=false, do_ci=false, order=1)
 test = weights .> 0 # drop obsns with zero weight
                     # to help the quantile computations
 weights = sqrt(weights[test])
@@ -33,9 +31,9 @@ end
 if ~do_median && ~do_ci
     return ymean
 elseif do_median && ~do_ci
-    return ymean, y50
+    return [ymean y50]
 else    
-    return ymean, y50, y05, y95
+    return [ymean y50 y05 y95]
 end    
 
 end

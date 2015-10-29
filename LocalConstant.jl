@@ -6,9 +6,7 @@ include(Pkg.dir()"/QuantileRegression/src/InteriorPoint.jl")
 
 using Distributions, Base.LinAlg.BLAS
 
-function LocalConstant(y, X, x, h, do_median=false, do_ci=false)
-weights = prod(pdf(Normal(),(X.-x)/h),2) # standard normal product kernel
-weights = weights/sum(weights)
+function LocalConstant(y, X, x, weights, do_median=false, do_ci=false)
 test = weights .> 0 # drop obsns with zero weight
                     # to help the quantile computations
 weights = sqrt(weights[test])
@@ -19,19 +17,19 @@ y = weights.*y
 ymean = sum(weights.*y)
 
 if do_median
-    y50 = qreg_ip_coef(y, X, 0.5)
+    y50 = qreg_ip_coef(y, X, 0.5)[1]
 end
 
 if do_ci
-    y05 = qreg_ip_coef(y, X, 0.05)
-    y95 = qreg_ip_coef(y, X, 0.95)
+    y05 = qreg_ip_coef(y, X, 0.05)[1]
+    y95 = qreg_ip_coef(y, X, 0.95)[1]
 end
 
 if ~do_median && ~do_ci
     return ymean
 elseif do_median && ~do_ci
-    return ymean, y50
+    return [ymean y50]
 else    
-    return ymean, y50, y05, y95
+    return [ymean y50 y05 y95]
 end    
 end

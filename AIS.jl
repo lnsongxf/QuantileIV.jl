@@ -13,6 +13,8 @@ see Auction.jl for an example
 
 using Distributions
 using Distances
+include("LocalConstant.jl")
+include("LocalPolynomial.jl")
 
 # sample from particles: normal perturbation of a 
 # single parameter, with bounds enforcement by rejection
@@ -87,6 +89,8 @@ function AIS_fit(Zn, nParticles, multiples, StopCriterion, AISdraws, nn="default
     end    
     # compute scaling limiting outliers
     dimZ = size(Zs,2)
+
+#=
     Z2 = copy(Zs)
     @inbounds for i = 1:dimZ
         q = quantile(Z2[:,i],0.99)
@@ -99,43 +103,45 @@ function AIS_fit(Zn, nParticles, multiples, StopCriterion, AISdraws, nn="default
         Z2[:,i] = Z2[:,i] .* test + q.*(1. - test)
     end
     stdZ = std(Z2,1)
-    distances = pairwise(Euclidean(),(Zs./stdZ)', (Zn./stdZ)') # get all distances
-    ind = sortperm(vec(distances)) # indices of k nearest neighbors
-    selected = ind[1:neighbors]
-    thetas = thetas[selected,:] # the nearest neighbors
-    distances = distances[selected,:]
-    Zs = Zs[selected,:]
-    # do the AIS weighting, and drop out-of-support draws
+=#
+    
+    stdZ = std(Zs,1)
+	Zs = Zs ./ stdZ
+    Zn = Zn ./ stdZ
+    bandwidth = 2.
+    weights = prod(pdf(Normal(),(Zs.-Zn)/bandwidth),2) # kernel weights
     AISweights = prior(thetas) ./ ((1. - mix)*prior(thetas) + mix*AIS_density(thetas, particles));
-    test = (AISweights .> 0.)
+    #AISweights = 1.
+    weights = AISweights.*weights # overall weights are AIS times kernel weight
+    weights = weights/sum(weights)
+    test = (weights .> 0.)
     thetas = thetas[test[:,1],:] # the nearest neighbors
-    distances = distances[test[:,1],:]
     Zs = Zs[test[:,1],:]
-    AISweights = AISweights[test[:,1],:]
-    # overall weights are AIS times kernel weight
-    m = maximum(distances)
-    if m > 0
-        weight = 2.*distances/m
-    else
-        weight = 0.
-    end    
-    weight = weight/sum(weight)
+    weights = weights[test[:,1],:]
+
     # compute estimator: default is local linear, but local constant or both are available
     if whichfit=="lc"
-        fit = sum(thetas.*weight,1)
+        params = size(thetas,2)
+        fit = zeros(1,4*params)
+        for i = 1:params
+            fit[:,i*4-4+1:i*4] = LocalConstant(vec(thetas[:,i]), Zs, Zn, weights, true, true)
+        end
         return fit
     elseif whichfit=="ll"
-        X = [ones(size(Zs,1),1) Zs]
-        XX = weight .* X;
-        b = inv(X'*XX)*XX'*thetas
-        fit = [1. Zn]*b
+        params = size(thetas,2)
+        fit = zeros(1,params)
+        for i = 1:4*params
+            fit[:,i*4-4+1:i*4] = LocalPolynomial(vec(thetas[:,i]), Zs, Zn, weights, true, true)
+        end
         return fit
     else    
-        lc_fit = sum(thetas.*weight,1)
-        X = [ones(size(Zs,1),1) Zs]
-        XX = weight .* X;
-        b = inv(X'*XX)*XX'*thetas
-        ll_fit = [1. Zn]*b
+        params = size(thetas,2)
+        lc_fit = zeros(1,4*params)
+        ll_fit = zeros(1,4*params)
+        for i = 1:params
+            lc_fit[:,(i*4-4+1):i*4] = LocalConstant(vec(thetas[:,i]), Zs, Zn, weights, true, true)
+            ll_fit[:,(i*4-4+1):i*4] = LocalPolynomial(vec(thetas[:,i]), Zs, Zn, weights, true, true)
+        end
         return [lc_fit ll_fit]
     end   
 end    

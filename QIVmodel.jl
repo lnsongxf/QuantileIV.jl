@@ -3,13 +3,14 @@ function makeQIVdata()
     n = 200 # sample size
     alpha = [1.0,1.0,1.0]
     beta = [1.,1.]
+    tau = 0.5
     Xi = randn(n,4)
     x = [ones(n,1) Xi[:,1] + Xi[:,2]]
     z = [ones(n,1) Xi[:,2] + Xi[:,3] Xi[:,1] + Xi[:,4]]
     v = randn(n,1)
     epsilon = exp(((z*alpha).^2.).*v) - 1.
     y = x*beta + epsilon
-    cholWinv = chol(inv(z'*z/n))
+    cholWinv = chol(inv(tau*(1. -tau)*(z'*z/n)))
     return y,x,z,cholWinv
 end
 
