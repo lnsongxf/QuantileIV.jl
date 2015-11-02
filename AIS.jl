@@ -67,15 +67,9 @@ end
 # the fitting routine: KNN regression, either local linear
 # (default) or local constant, weighted by importance sampling
 # weights from the AIS density
-function AIS_fit(Zn, nParticles, multiples, StopCriterion, AISdraws, nn="default", whichfit="ll", mix=1.)
-    # neighbors
-    if nn=="default"
-        neighbors = round(Int, 5.0*AISdraws^0.25)
-    else
-        neighbors = nn
-    end  
+function AIS_fit(Zn, nParticles, multiples, StopCriterion, AISdraws, whichfit, mix, otherargs)
     # do AIS to get particles
-    particles, Zs = AIS_algorithm(nParticles, multiples, StopCriterion, Zn)
+    particles, Zs = AIS_algorithm(nParticles, multiples, StopCriterion, Zn, otherargs)
     # sample from AIS particles
     thetas = zeros(AISdraws, size(particles,2))
     Zs = zeros(AISdraws, size(Zn,2))
@@ -108,10 +102,11 @@ function AIS_fit(Zn, nParticles, multiples, StopCriterion, AISdraws, nn="default
     stdZ = std(Zs,1)
 	Zs = Zs ./ stdZ
     Zn = Zn ./ stdZ
-    bandwidth = 2.
+    S = size(Zs,1)
+    bandwidth = 0.15
     weights = prod(pdf(Normal(),(Zs.-Zn)/bandwidth),2) # kernel weights
-    AISweights = prior(thetas) ./ ((1. - mix)*prior(thetas) + mix*AIS_density(thetas, particles));
-    #AISweights = 1.
+    #AISweights = prior(thetas) ./ ((1. - mix)*prior(thetas) + mix*AIS_density(thetas, particles))
+    AISweights = 1.
     weights = AISweights.*weights # overall weights are AIS times kernel weight
     weights = weights/sum(weights)
     test = (weights .> 0.)
@@ -148,7 +143,7 @@ end
 
 
 # Draw particles from prior
-function GetInitialParticles(nParticles::Int64)
+function GetInitialParticles(nParticles::Int64, otherargs)
     particle = sample_from_prior()
     Z = aux_stat(particle, otherargs)
     Zs = zeros(nParticles, size(Z,2))
@@ -164,7 +159,7 @@ function GetInitialParticles(nParticles::Int64)
 end
 
 # Sample from current particles
-function GetNewParticles(particles::Array{Float64,2}, multiple::Int64)
+function GetNewParticles(particles::Array{Float64,2}, multiple::Int64, otherargs)
     nParticles, dimTheta = size(particles)
     newparticles = zeros(multiple*nParticles,dimTheta)
     # get size of Z
@@ -172,7 +167,7 @@ function GetNewParticles(particles::Array{Float64,2}, multiple::Int64)
     Z = aux_stat(particle, otherargs)
     dimZ = size(Z,2)
     newZs = zeros(multiple*nParticles, dimZ)
-    delta = 0.5*std(particles,1)
+    delta = 1.0*std(particles,1)
     @inbounds for i = 1:multiple*nParticles
         newparticles[i,:] = sample_from_particles(particles, delta)
         newZs[i,:] = aux_stat(newparticles[i,:], otherargs)
@@ -192,20 +187,6 @@ function Select(nParticles, distances::Array{Float64,1}, particles::Array{Float6
     return new, particles, Zs, distances
 end    
 
-#=
-function GetPlot(iter::Int64, particles::Array{Float64,2}, axes, ax)        
-    if iter == 1
-        fig, axes = subplots(5, 3,sharex="all", sharey="all")
-    end
-    ax = axes[iter, 1]
-    ax[:scatter](particles[:,1],particles[:,2])
-    ax = axes[iter, 2]
-    ax[:scatter](particles[:,1],particles[:,3])
-    ax = axes[iter, 3]
-    ax[:scatter](particles[:,2],particles[:,3])
-    return axes, ax
-end        
-=#
 
 #= AIS_algorithm: The adaptive method is used to find the
 particles that will be used to construct the importance
@@ -215,9 +196,9 @@ provided bounds. However, the importance sampling density
 that uses the particles is a mixture of normals, each
 centered on a particle, and the support is R^k. Thus, no
 truncation occurs in the importance sampling density. =# 
-function AIS_algorithm(nParticles::Int64, multiple::Int64, StopCriterion::Float64, Zn::Array{Float64,2}, DoPlot::Bool=false)
+function AIS_algorithm(nParticles::Int64, multiple::Int64, StopCriterion::Float64, Zn::Array{Float64,2}, otherargs)
     # the initial particles
-    particles, Zs = GetInitialParticles(nParticles)
+    particles, Zs = GetInitialParticles(nParticles, otherargs)
     # do bounding to compute scale the first time
     # in the loop, selection will remove outliers
     dimZ = size(Zs,2)
@@ -238,7 +219,7 @@ function AIS_algorithm(nParticles::Int64, multiple::Int64, StopCriterion::Float6
         iter +=1
         stdZ = std(Zs,1)
         # generate new particles
-        newparticles, newZs = GetNewParticles(particles, multiple)
+        newparticles, newZs = GetNewParticles(particles, multiple, otherargs)
         # stack them
         Zs = [Zs; newZs]
         particles = [particles; newparticles]
