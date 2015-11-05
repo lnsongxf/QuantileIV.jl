@@ -16,36 +16,57 @@ function QIVWrapper()
     StopCriterion = 0.2 # stop when proportion of new particles accepted is below this
     AISdraws = 10000
     mix = 0.5 # proportion drawn from AIS, rest is from prior
+    bandwidth = [0.279, 0.345] # optimal for RMSE, tuned from prior
+#    bandwidth = [0.372, 0.374] # optimal for 90% CI coverage (LL), tuned from prior
+#     bandwidth = [0.228, 0.312] # optimal for RMSE, tuned locally
+#     bandwidth = [0.369, 0.380] # optimal for RMSE, tuned locally
     # now implement it
     y,x,z,cholsig,betahatIV = makeQIVdata(beta, n) # draw the data
     otherargs = (y,x,z,tau,cholsig)
     Zn = [0. 0. 0.]
-    contrib = AIS_fit(Zn, nParticles, multiples, StopCriterion, AISdraws, "both", mix,otherargs)
+    contrib = AIS_fit(Zn, nParticles, multiples, StopCriterion, AISdraws, mix, otherargs, bandwidth)
+    contrib = [contrib betahatIV']
 end
 
 # the monitoring function
 function QIVMonitor(sofar, results)
-    if mod(sofar,1) == 0
+    if mod(sofar,100) == 0
         theta = [1. 1.]
-        m = mean(results[1:sofar,[1;2]],1)
+        # local constant
+        m = mean(results[1:sofar,[1;5]],1)
         er = m - theta
         b = mean(er,1)
-        s = std(results[1:sofar,[1;2]],1) 
+        s = std(results[1:sofar,[1;5]],1) 
         mse = s.^2 + b.^2
         rmse = sqrt(mse)
         println()
-        println("parameter 2, local linearresults")
+        println("local constant results")
         println("reps so far: ", sofar)
         println("mean: ", m)
         println("bias: ", b)
         println("st. dev.: ", s)
         println("mse.: ",mse)
         println("rmse.: ",rmse)
-
+        # local linear
+        m = mean(results[1:sofar,[9;13]],1)
+        er = m - theta
+        b = mean(er,1)
+        s = std(results[1:sofar,[9;13]],1) 
+        mse = s.^2 + b.^2
+        rmse = sqrt(mse)
+        println()
+        println("local linear results")
+        println("reps so far: ", sofar)
+        println("mean: ", m)
+        println("bias: ", b)
+        println("st. dev.: ", s)
+        println("mse.: ",mse)
+        println("rmse.: ",rmse)
+        # IV  
         m = mean(results[1:sofar,[17;18]],1)
         er = m - theta
         b = mean(er,1)
-        s = std(results[1:sofar,[17;18]],1) 
+        s = std(results[1:sofar,[1;2]],1) 
         mse = s.^2 + b.^2
         rmse = sqrt(mse)
         println()
@@ -56,17 +77,26 @@ function QIVMonitor(sofar, results)
         println("st. dev.: ", s)
         println("mse.: ",mse)
         println("rmse.: ",rmse)
-
+         
         inci = (results[1:sofar,3] .< 1.) & (results[1:sofar,4] .>= 1.)
         println()
-        println("CI coverage: ", mean(inci))
+        println("beta1 CI coverage: ", mean(inci))
+
+        inci = (results[1:sofar,7] .< 1.) & (results[1:sofar,8] .>= 1.)
+        println()
+        println("beta2 CI coverage: ", mean(inci))
+    end
+
+    # save the LL results for local bandwidth tuning
+    if sofar == size(results,1)
+        writedlm("first_round_estimates.out", results[:,[9;13]])
     end
 end
 
 function main()
     reps = 1000   # desired number of MC reps
-    n_returns = 16
-    pooled = 50  # do this many reps before reporting
+    n_returns = 18
+    pooled = 10  # do this many reps before reporting
     montecarlo(QIVWrapper, QIVMonitor, reps, n_returns, pooled)
 end
 

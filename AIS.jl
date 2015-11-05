@@ -67,7 +67,7 @@ end
 # the fitting routine: KNN regression, either local linear
 # (default) or local constant, weighted by importance sampling
 # weights from the AIS density
-function AIS_fit(Zn, nParticles, multiples, StopCriterion, AISdraws, whichfit, mix, otherargs)
+function AIS_fit(Zn, nParticles, multiples, StopCriterion, AISdraws, mix, otherargs, bandwidth)
     # do AIS to get particles
     particles, Zs = AIS_algorithm(nParticles, multiples, StopCriterion, Zn, otherargs)
     # sample from AIS particles
@@ -85,43 +85,33 @@ function AIS_fit(Zn, nParticles, multiples, StopCriterion, AISdraws, whichfit, m
     stdZ = std(Zs,1)
 	Zs = Zs ./ stdZ
     Zn = Zn ./ stdZ
-    S = size(Zs,1)
-    bandwidth = 0.12
-    weights = prod(pdf(Normal(),(Zs.-Zn)/bandwidth),2) # kernel weights
+    if size(bandwidth) == ()
+        weights = prod(pdf(Normal(),(Zs.-Zn)/bandwidth),2) # kernel weights
+        weights = weights*ones(1,size(thetas,2)) # expand out
+    else
+        weights = zeros(size(Zs,1),size(thetas,2))
+        for i = 1:size(bandwidth,1)
+            weights[:,i] = prod(pdf(Normal(),(Zs.-Zn)/bandwidth[i]),2) # kernel weights
+        end
+    end    
     #AISweights = prior(thetas) ./ ((1. - mix)*prior(thetas) + mix*AIS_density(thetas, particles))
     AISweights = 1.
     weights = AISweights.*weights # overall weights are AIS times kernel weight
-    weights = weights/sum(weights)
+    weights = weights ./sum(weights,1)
     test = (weights .> 0.)
     thetas = thetas[test[:,1],:] # the nearest neighbors
     Zs = Zs[test[:,1],:]
     weights = weights[test[:,1],:]
-
-    # compute estimator: default is local linear, but local constant or both are available
-    if whichfit=="lc"
-        params = size(thetas,2)
-        fit = zeros(1,4*params)
+    params = size(thetas,2)
+    lc_fit = -999. *ones(1,4*params)
+    ll_fit = -999. *ones(1,4*params)
+    if size(weights,1) > AISdraws/100.
         for i = 1:params
-            fit[:,i*4-4+1:i*4] = LocalConstant(vec(thetas[:,i]), Zs, Zn, weights, true, true)
+            lc_fit[:,(i*4-4+1):i*4] = LocalConstant(vec(thetas[:,i]), Zs, Zn, weights[:,i], true, true)
+            ll_fit[:,(i*4-4+1):i*4] = LocalPolynomial(vec(thetas[:,i]), Zs, Zn, weights[:,i], true, true)
         end
-        return fit
-    elseif whichfit=="ll"
-        params = size(thetas,2)
-        fit = zeros(1,params)
-        for i = 1:4*params
-            fit[:,i*4-4+1:i*4] = LocalPolynomial(vec(thetas[:,i]), Zs, Zn, weights, true, true)
-        end
-        return fit
-    else    
-        params = size(thetas,2)
-        lc_fit = zeros(1,4*params)
-        ll_fit = zeros(1,4*params)
-        for i = 1:params
-            lc_fit[:,(i*4-4+1):i*4] = LocalConstant(vec(thetas[:,i]), Zs, Zn, weights, true, true)
-            ll_fit[:,(i*4-4+1):i*4] = LocalPolynomial(vec(thetas[:,i]), Zs, Zn, weights, true, true)
-        end
-        return [lc_fit ll_fit]
-    end   
+    end
+    return [lc_fit ll_fit]
 end    
 
 

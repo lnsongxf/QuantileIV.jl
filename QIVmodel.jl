@@ -11,11 +11,10 @@ function makeQIVdata(beta, n)
     epsilon = exp(((z*alpha) .^ 2.).*v) - 1.
     y = x*beta + epsilon
     cholsig = chol(tau*(1. -tau)*(z'*z/n))
-    #xhat = z*(z\x)
-    #yhat = z*(z\y)
-    #betahatIV = inv(x'*xhat)*x'*yhat
-    #return y,x,z,cholsig,betahatIV
-    return y,x,z,cholsig
+    xhat = z*(z\x)
+    yhat = z*(z\y)
+    betahatIV = inv(x'*xhat)*x'*yhat
+    return y,x,z,cholsig,betahatIV
 end
 
 # the moments
