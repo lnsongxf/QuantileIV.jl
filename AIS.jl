@@ -82,28 +82,11 @@ function AIS_fit(Zn, nParticles, multiples, StopCriterion, AISdraws, whichfit, m
         Zs[i,:] = aux_stat(thetas[i,:],otherargs)
     end    
     # compute scaling limiting outliers
-    dimZ = size(Zs,2)
-
-#=
-    Z2 = copy(Zs)
-    @inbounds for i = 1:dimZ
-        q = quantile(Z2[:,i],0.99)
-        # top bound
-        test =  Z2[:,i] .< q
-        Z2[:,i] = Z2[:,i].*test  + q.*(1. - test)
-        q = -quantile(-Z2[:,i],0.99)
-        # bottom bound
-        test =  Z2[:,i] .> q
-        Z2[:,i] = Z2[:,i] .* test + q.*(1. - test)
-    end
-    stdZ = std(Z2,1)
-=#
-    
     stdZ = std(Zs,1)
 	Zs = Zs ./ stdZ
     Zn = Zn ./ stdZ
     S = size(Zs,1)
-    bandwidth = 0.15
+    bandwidth = 0.12
     weights = prod(pdf(Normal(),(Zs.-Zn)/bandwidth),2) # kernel weights
     #AISweights = prior(thetas) ./ ((1. - mix)*prior(thetas) + mix*AIS_density(thetas, particles))
     AISweights = 1.

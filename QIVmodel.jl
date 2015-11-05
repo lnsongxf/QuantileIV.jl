@@ -1,10 +1,8 @@
 # dgp
-function makeQIVdata()
-    n = 200 # sample size
+function makeQIVdata(beta, n)
     alpha = [1.0,1.0,1.0]
     varscale = 5.
     alpha = alpha / varscale
-    beta = [1.,1.]
     tau = 0.5
     Xi = randn(n,4)
     x = [ones(n,1) Xi[:,1] + Xi[:,2]]
@@ -13,6 +11,10 @@ function makeQIVdata()
     epsilon = exp(((z*alpha) .^ 2.).*v) - 1.
     y = x*beta + epsilon
     cholsig = chol(tau*(1. -tau)*(z'*z/n))
+    #xhat = z*(z\x)
+    #yhat = z*(z\y)
+    #betahatIV = inv(x'*xhat)*x'*yhat
+    #return y,x,z,cholsig,betahatIV
     return y,x,z,cholsig
 end
 
@@ -34,7 +36,7 @@ end
 function sample_from_prior()
 	theta = rand(1,2)
     lb = [0. 0.]
-    ub = [2. 2.]
+    ub = [3. 3.]
     theta = (ub-lb).*theta + lb
 end
 
@@ -42,7 +44,7 @@ end
 # the prior as a mixture component, to maintain the support
 function prior(theta::Array{Float64,2})
     lb = [0. 0.]
-    ub = [2. 2.]
+    ub = [3. 3.]
     c = 1./prod(ub - lb)
     p = ones(size(theta,1),1)*c
     ok = all((theta.>=lb) & (theta .<=ub),2)
@@ -51,7 +53,7 @@ end
 
 function check_in_support(theta::Array{Float64,2})
     lb = [0. 0.]
-    ub = [2. 2.]
+    ub = [3. 3.]
     ok = all((theta .>= lb) & (theta .<= ub))
     return ok, lb, ub
 end
