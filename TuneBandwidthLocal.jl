@@ -17,7 +17,7 @@ function QIVWrapper()
     StopCriterion = 0.2 # stop when proportion of new particles accepted is below this
     AISdraws = 10000
     mix = 0.5 # proportion drawn from AIS, rest is from prior
-    bandwidth = 0.04 + rand(0:50)*0.01  # bws are random from 0.04 to 0.54
+    bandwidth = 0.1 + rand(0:25)*0.01  # bws are random from 0.1 to 0.35
     # now implement it
     y,x,z,cholsig = makeQIVdata(beta', n) # draw the data
     otherargs = (y,x,z,tau,cholsig)
@@ -25,9 +25,11 @@ function QIVWrapper()
     contrib = AIS_fit(Zn, nParticles, multiples, StopCriterion, AISdraws, mix, otherargs, bandwidth)
     fitted = [contrib[:,9] contrib[:,13]] # local linear cond. means
     baddata = convert(Float64, any(fitted== -999.))
-    error = beta - fitted
-    # return bandwidth and squared error for LL cond. mean, estimator
-    contrib = [baddata bandwidth  error.^2] 
+    error1 = (beta - fitted).^2
+    error2 = [(contrib[:,3] .< beta[:,1]) & (contrib[:,4] .> beta[:,1]) (contrib[:,7] .< beta[:,2]) & (contrib[:,8] .> beta[:,2]) ] # local linear cond. means
+    error2 = abs(error2 .- 0.9)
+    contrib = [baddata bandwidth  error1 error2] 
+
 end
 
 # the monitoring function
@@ -44,7 +46,7 @@ end
 
 function main()
     reps = 1000   # desired number of MC reps
-    n_returns = 4
+    n_returns = 6
     pooled = 10  # do this many reps before reporting
     montecarlo(QIVWrapper, QIVMonitor, reps, n_returns, pooled)
 end

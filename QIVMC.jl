@@ -15,11 +15,11 @@ function QIVWrapper()
     multiples = 5  # particles tried is this multiple of particle kept
     StopCriterion = 0.2 # stop when proportion of new particles accepted is below this
     AISdraws = 10000
-    mix = 0.5 # proportion drawn from AIS, rest is from prior
-    bandwidth = [0.279, 0.345] # optimal for RMSE, tuned from prior
-#    bandwidth = [0.372, 0.374] # optimal for 90% CI coverage (LL), tuned from prior
-#     bandwidth = [0.228, 0.312] # optimal for RMSE, tuned locally
-#     bandwidth = [0.369, 0.380] # optimal for RMSE, tuned locally
+    mix = 0.9 # proportion drawn from AIS, rest is from prior
+    #bandwidth = [0.16,0.18] # optimal for RMSE, tuned from prior
+    #bandwidth = [0.26,0.26] # optimal for CI, tuned from prior
+    #bandwidth = [0.22, 0.30] # optimal for RMSE, tuned locally
+    bandwidth = [0.23, 0.28] # optimal for CI, tuned locally
     # now implement it
     y,x,z,cholsig,betahatIV = makeQIVdata(beta, n) # draw the data
     otherargs = (y,x,z,tau,cholsig)
@@ -89,7 +89,7 @@ function QIVMonitor(sofar, results)
 
     # save the LL results for local bandwidth tuning
     if sofar == size(results,1)
-        writedlm("first_round_estimates.out", results[:,[9;13]])
+#        writedlm("first_round_estimates.out", results[:,[9;13]])
     end
 end
 

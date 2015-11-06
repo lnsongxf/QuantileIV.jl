@@ -84,7 +84,6 @@ function AIS_fit(Zn, nParticles, multiples, StopCriterion, AISdraws, mix, othera
     # compute scaling limiting outliers
     stdZ = std(Zs,1)
 	Zs = Zs ./ stdZ
-    Zn = Zn ./ stdZ
     if size(bandwidth) == ()
         weights = prod(pdf(Normal(),(Zs.-Zn)/bandwidth),2) # kernel weights
         weights = weights*ones(1,size(thetas,2)) # expand out
