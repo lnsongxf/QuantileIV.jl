@@ -112,7 +112,15 @@ function AIS_fit(Zn, nParticles, multiples, StopCriterion, AISdraws, mix, othera
             ll_fit[:,(i*4-4+1):i*4] = LocalPolynomial(vec(thetas[:,i]), Zs, Zn, weights[:,i], true, true)
         end
     end
-    return [lc_fit ll_fit]
+    n = 50.
+    S = size(Zs,1)
+    sl_weights = zeros(S,1)
+    for i = 1:S
+        sl_weights[i,:] = exp(n * -Zs[i,:]*Zs[i,:]'/2.)
+    end
+    sl_weights = sl_weights/sum(sl_weights,1)
+    sl_fit = sum(thetas.*sl_weights,1)
+    return [lc_fit ll_fit sl_fit]
 end    
 
 

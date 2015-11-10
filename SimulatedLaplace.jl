@@ -1,5 +1,4 @@
-include("QIVmodel.jl") # load auction model code
-include("AIS.jl") # the adaptive importance sampling algorithm
+include("AIS_sl.jl") # the adaptive importance sampling algorithm
 include(Pkg.dir()"/MPI/examples/montecarlo.jl")
 
 blas_set_num_threads(1)
@@ -7,7 +6,7 @@ blas_set_num_threads(1)
 
 function QIVWrapper()
     # features of model
-    n = 200  # sample size
+    n = 50  # sample size
     beta = [1., 1.] # true parameters
     tau = 0.5
     # features of estimation procedure
@@ -16,16 +15,15 @@ function QIVWrapper()
     StopCriterion = 5 # stop when proportion of new particles accepted is below this
     AISdraws = 10000
     mix = 0.5 # proportion drawn from AIS, rest is from prior
-    bandwidth = [0.17,0.17] # optimal for RMSE, tuned from prior
+    bandwidth = [0.3,0.5] # optimal for RMSE, tuned from prior
     #bandwidth = [0.12, 0.20] # optimal for CI, tuned from prior
     #bandwidth = [0.24, 0.28] # optimal for RMSE, tuned locally
-    #bandwidth = [0.135, 0.20] # optimal for CI, tuned locally
+    #bandwidth = [0.135, 0.205] # optimal for CI, tuned locally
     # now implement it
     y,x,z,cholsig,betahatIV = makeQIVdata(beta, tau, n) # draw the data
     otherargs = (y,x,z,tau,cholsig)
     Zn = [0. 0. 0.]
     contrib = AIS_fit(Zn, nParticles, multiples, StopCriterion, AISdraws, mix, otherargs, bandwidth)
-    contrib = [contrib betahatIV']
 end
 
 # the monitoring function
@@ -62,7 +60,7 @@ function QIVMonitor(sofar, results)
         println("st. dev.: ", s)
         println("mse.: ",mse)
         println("rmse.: ",rmse)
-        # IV  
+        # simulated Laplace  
         m = mean(results[1:sofar,[17;18]],1)
         er = m - theta
         b = mean(er,1)
@@ -70,7 +68,7 @@ function QIVMonitor(sofar, results)
         mse = s.^2 + b.^2
         rmse = sqrt(mse)
         println()
-        println("IV results")
+        println("Simulated Laplace results")
         println("reps so far: ", sofar)
         println("mean: ", m)
         println("bias: ", b)
@@ -92,6 +90,65 @@ function QIVMonitor(sofar, results)
 #        writedlm("first_round_estimates.out", results[:,[9;13]])
     end
 end
+
+# dgp
+function makeQIVdata(beta, tau, n)
+    alpha = [1.0,1.0,1.0]
+    varscale = 5.
+    alpha = alpha / varscale
+    Xi = randn(n,4)
+    x = [ones(n,1) Xi[:,1] + Xi[:,2]]
+    z = [ones(n,1) Xi[:,2] + Xi[:,3] Xi[:,1] + Xi[:,4]]
+    v = randn(n,1)
+    epsilon = exp(((z*alpha) .^ 2.).*v) - 1.
+    y = x*beta + epsilon
+    cholsig = chol(tau*(1. -tau)*(z'*z/n))
+    xhat = z*(z\x)
+    yhat = z*(z\y)
+    betahatIV = inv(x'*xhat)*x'*yhat
+    return y,x,z,cholsig,betahatIV
+end
+
+# the moments
+function aux_stat(beta, otherargs)
+    y = otherargs[1]
+    x = otherargs[2]
+    z = otherargs[3]
+    tau = otherargs[4]
+    cholsig = otherargs[5]
+    m = mean(z.*(tau - map(Float64,y .<= x*beta')),1)
+    n = size(y,1);
+    m = m + randn(size(m))*cholsig/sqrt(n)
+    return m
+end
+
+
+# this function generates a draw from the prior
+function sample_from_prior()
+	theta = rand(1,2)
+    lb = [-1. -1.]
+    ub = [3. 3.]
+    theta = (ub-lb).*theta + lb
+end
+
+# the prior: needed to compute AIS density, which uses
+# the prior as a mixture component, to maintain the support
+function prior(theta::Array{Float64,2})
+    lb = [-1. -1.]
+    ub = [3. 3.]
+    c = 1./prod(ub - lb)
+    p = ones(size(theta,1),1)*c
+    ok = all((theta.>=lb) & (theta .<=ub),2)
+    p = p.*ok
+end    
+
+function check_in_support(theta::Array{Float64,2})
+    lb = [-1. -1.]
+    ub = [3. 3.]
+    ok = all((theta .>= lb) & (theta .<= ub))
+    return ok, lb, ub
+end
+
 
 function main()
     reps = 1000   # desired number of MC reps

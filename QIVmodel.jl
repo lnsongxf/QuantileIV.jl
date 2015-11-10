@@ -1,9 +1,8 @@
 # dgp
-function makeQIVdata(beta, n)
+function makeQIVdata(beta, tau, n)
     alpha = [1.0,1.0,1.0]
     varscale = 5.
     alpha = alpha / varscale
-    tau = 0.5
     Xi = randn(n,4)
     x = [ones(n,1) Xi[:,1] + Xi[:,2]]
     z = [ones(n,1) Xi[:,2] + Xi[:,3] Xi[:,1] + Xi[:,4]]

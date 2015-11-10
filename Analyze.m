@@ -1,10 +1,10 @@
 # this takes the simulation from prior results
 # and fits a quadratic function of bw to the
 # absolute error, and finds the minimizer
-%load tune_from_prior.out;
-%data = tune_from_prior;
-load tune_local.out;
-data = tune_local;
+load tune_from_prior.out;
+data = tune_from_prior;
+#load tune_local.out;
+#data = tune_local;
 test = data(:,1) != 1;
 data = data(test,:);
 test = data < 100;
@@ -21,3 +21,10 @@ for whichdep = 1:4
 endfor
 ind = 1:rows(bws);
 disp([ind' bws scores])
+plot(bws, scores(:,1));
+figure;
+plot(bws, scores(:,2));
+figure;
+plot(bws, scores(:,3));
+figure;
+plot(bws, scores(:,4));
