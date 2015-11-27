@@ -51,7 +51,9 @@ function main()
     reps = 1000   # desired number of MC reps
     n_returns = 6
     pooled = 25  # do this many reps before reporting
-    montecarlo(QIVWrapper, QIVMonitor, reps, n_returns, pooled)
+    MPI.Init()
+    montecarlo(QIVWrapper, QIVMonitor, MPI.COMM_WORLD, reps, n_returns, pooled)
+    MPI.Finalize()
 end
 
 
