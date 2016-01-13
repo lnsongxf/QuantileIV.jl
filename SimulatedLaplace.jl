@@ -64,7 +64,7 @@ function QIVMonitor(sofar, results)
         m = mean(results[1:sofar,[17;18]],1)
         er = m - theta
         b = mean(er,1)
-        s = std(results[1:sofar,[1;2]],1) 
+        s = std(results[1:sofar,[17;18]],1) 
         mse = s.^2 + b.^2
         rmse = sqrt(mse)
         println()
