@@ -20,12 +20,12 @@ y = weights.*y
 ymean = (X\y)[1,:]
 
 if do_median
-    y50 = qreg_ip_coef(vec(y), X, 0.5)[1,:]
+    y50 = qreg_coef(vec(y), X, 0.5,IP())[1,:]
 end
 
 if do_ci
-    y05 = qreg_ip_coef(vec(y), X, 0.05)[1,:]
-    y95 = qreg_ip_coef(vec(y), X, 0.95)[1,:]
+    y05 = qreg_coef(vec(y), X, 0.05,IP())[1,:]
+    y95 = qreg_coef(vec(y), X, 0.95,IP())[1,:]
 end
 
 if ~do_median && ~do_ci

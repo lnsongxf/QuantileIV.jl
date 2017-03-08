@@ -4,7 +4,8 @@
 # using the interior point method from QuantileRegression package
 include(Pkg.dir()"/QuantileRegression/src/InteriorPoint.jl") 
 
-using Distributions, Base.LinAlg.BLAS
+using Distributions
+using Base.LinAlg.BLAS
 
 function LocalConstant(y, X, x, weights, do_median=false, do_ci=false)
 test = weights .> 0 # drop obsns with zero weight
@@ -17,12 +18,12 @@ y = weights.*y
 ymean = sum(weights.*y)
 
 if do_median
-    y50 = qreg_ip_coef(y, X, 0.5)[1]
+    y50 = qreg_coef(vec(y), X, 0.5,IP())[1]
 end
 
 if do_ci
-    y05 = qreg_ip_coef(y, X, 0.05)[1]
-    y95 = qreg_ip_coef(y, X, 0.95)[1]
+    y05 = qreg_coef(vec(y), X, 0.05,IP())[1]
+    y95 = qreg_coef(vec(y), X, 0.95,IP())[1]
 end
 
 if ~do_median && ~do_ci

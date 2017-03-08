@@ -24,10 +24,10 @@ function sample_from_particles(particles::Array{Float64,2}, delta::Array{Float64
     i = rand(1:n)
 	j = rand(1:k)
     ok = false
-    theta_s = similar(particles[i,:])
+    theta_s = similar(particles[[i],:])
     @inbounds while ok != true
-        theta_s = particles[i,:]
-        theta_s[:,j] = theta_s[:,j] + delta[:,j]*randn()
+        theta_s = particles[[i],:]
+        theta_s[:,[j]] = theta_s[:,[j]] + delta[:,[j]]*randn()
         ok, junk, junk = check_in_support(theta_s)
     end    
     return theta_s
@@ -38,7 +38,7 @@ end
 function sample_from_AIS(particles::Array{Float64,2})
     delta = 1.0*std(particles,1)
 	i = rand(1:size(particles,1))
-    theta_s = particles[i,:]
+    theta_s = particles[[i],:]
     theta_s = theta_s + delta.*randn(size(delta))
     return theta_s
 end
@@ -53,11 +53,11 @@ function AIS_density(theta::Array{Float64,2}, particles::Array{Float64,2})
     dens = zeros(nthetas,1)
     @inbounds for i = 1:nparticles
         @inbounds for j = 1:nthetas
-            thetaj = theta[j,:]
+            thetaj = theta[[j],:]
             thetaj2 = vec(thetaj)
-            mu = vec(particles[i,:])
+            mu = vec(particles[[i],:])
             d = MvNormal(mu, sig)
-            dens[j,1] += pdf(d, thetaj2)
+            dens[[j],1] += pdf(d, thetaj2)
         end
     end
     dens = dens/nparticles
@@ -75,9 +75,9 @@ function AIS_fit(Zn, nParticles, multiples, StopCriterion, AISdraws, mix, othera
     Zs = zeros(AISdraws, size(Zn,2))
     @inbounds for i = 1:AISdraws
         if rand() < mix
-            thetas[i,:] = sample_from_AIS(particles)
+            thetas[[i],:] = sample_from_AIS(particles)
         else    
-            thetas[i,:] = sample_from_prior()
+            thetas[[i],:] = sample_from_prior()
         end
         Zs[i,:] = aux_stat(thetas[i,:],otherargs)
     end    
@@ -92,14 +92,14 @@ function AIS_fit(Zn, nParticles, multiples, StopCriterion, AISdraws, mix, othera
     else
         weights = zeros(size(Zs,1),size(thetas,2))
         for i = 1:size(bandwidth,1)
-            weights[:,i] = prod(pdf(Normal(),(Zs.-Zn)/bandwidth[i]),2) # kernel weights
+            weights[:,[i]] = prod(pdf(Normal(),(Zs.-Zn)/bandwidth[i]),2) # kernel weights
         end
     end    
     #AISweights = prior(thetas) ./ ((1. - mix)*prior(thetas) + mix*AIS_density(thetas, particles))
-    AISweights = 1.
+    AISweights = 1.0
     weights = AISweights.*weights # overall weights are AIS times kernel weight
     weights = weights ./sum(weights,1)
-    test = (weights .> 0.)
+    test = (weights .> 0.0)
     thetas = thetas[test[:,1],:] # the nearest neighbors
     Zs = Zs[test[:,1],:]
     weights = weights[test[:,1],:]
@@ -108,8 +108,8 @@ function AIS_fit(Zn, nParticles, multiples, StopCriterion, AISdraws, mix, othera
     ll_fit = -999. *ones(1,4*params)
     if size(weights,1) > AISdraws/100.
         for i = 1:params
-            lc_fit[:,(i*4-4+1):i*4] = LocalConstant(vec(thetas[:,i]), Zs, Zn, weights[:,i], true, true)
-            ll_fit[:,(i*4-4+1):i*4] = LocalPolynomial(vec(thetas[:,i]), Zs, Zn, weights[:,i], true, true)
+            lc_fit[:,(i*4-4+1):i*4] = LocalConstant(vec(thetas[:,i]), Zs, Zn, weights[:,[i]], true, true)
+            ll_fit[:,(i*4-4+1):i*4] = LocalPolynomial(vec(thetas[:,i]), Zs, Zn, weights[:,[i]], true, true)
         end
     end
     return [lc_fit ll_fit]
@@ -125,9 +125,9 @@ function GetInitialParticles(nParticles::Int64, otherargs)
     particles[1,:] = particle
     Zs[1,:] = Z
     @inbounds for i = 2:nParticles
-        particles[i,:] = sample_from_prior()
-        Z = aux_stat(particles[i,:], otherargs)
-        Zs[i,:]	= Z
+        particles[[i],:] = sample_from_prior()
+        Z = aux_stat(particles[[i],:], otherargs)
+        Zs[[i],:]	= Z
     end
     return particles, Zs
 end
@@ -177,14 +177,14 @@ function AIS_algorithm(nParticles::Int64, multiple::Int64, StopCriterion, Zn::Ar
     # in the loop, selection will remove outliers
     dimZ = size(Zs,2)
     @inbounds for i = 1:dimZ
-        q = quantile(Zs[:,i],0.99)
+        q = quantile(vec(Zs[:,[i]]),0.99)
         # top bound
-        test =  Zs[:,i] .< q
-        Zs[:,i] = Zs[:,i].*test  + q.*(1. - test)
-        q = -quantile(-Zs[:,i],0.99)
+        test =  Zs[:,[i]] .< q
+        Zs[:,[i]] = Zs[:,[i]].*test  + q.*(1. - test)
+        q = -quantile(vec(-Zs[:,[i]]),0.99)
         # bottom bound
-        test =  Zs[:,i] .> q
-        Zs[:,i] = Zs[:,i] .* test + q.*(1. - test)
+        test =  Zs[:,[i]] .> q
+        Zs[:,[i]] = Zs[:,[i]] .* test + q.*(1. - test)
     end
     iter = 0
     # the main loop

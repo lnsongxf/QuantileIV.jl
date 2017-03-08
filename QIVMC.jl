@@ -1,8 +1,9 @@
+using QuantileRegression
 include("QIVmodel.jl") # load auction model code
 include("AIS.jl") # the adaptive importance sampling algorithm
 include(Pkg.dir()"/MPI/examples/montecarlo.jl")
 
-blas_set_num_threads(1)
+#blas_set_num_threads(1)
 
 
 function QIVWrapper()
@@ -23,7 +24,7 @@ function QIVWrapper()
     # now implement it
     y,x,z,cholsig,betahatIV = makeQIVdata(beta, tau, n) # draw the data
     otherargs = (y,x,z,tau,cholsig)
-    Zn = [0. 0. 0.]
+    Zn = [0.0 0.0 0.0]
     contrib = AIS_fit(Zn, nParticles, multiples, StopCriterion, AISdraws, mix, otherargs, bandwidth)
     contrib = [contrib betahatIV']
 end
