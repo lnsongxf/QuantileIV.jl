@@ -2,9 +2,7 @@
 # the median and 0.05 and 0.95 quantiles
 
 # using the interior point method from QuantileRegression package
-include(Pkg.dir()"/QuantileRegression/src/InteriorPoint.jl") 
-
-using Base.LinAlg.BLAS
+include("InteriorPoint.jl") 
 
 function LocalPolynomial(y, X, x0, weights, do_median=false, do_ci=false, order=1)
 test = weights .> 0 # drop obsns with zero weight

@@ -2,10 +2,9 @@
 # the median and 0.05 and 0.95 quantiles
 
 # using the interior point method from QuantileRegression package
-include(Pkg.dir()"/QuantileRegression/src/InteriorPoint.jl") 
+include("InteriorPoint.jl") 
 
 using Distributions
-using Base.LinAlg.BLAS
 
 function LocalConstant(y, X, x, weights, do_median=false, do_ci=false)
 test = weights .> 0 # drop obsns with zero weight

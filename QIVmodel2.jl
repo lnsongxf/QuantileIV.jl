@@ -3,16 +3,19 @@ using Distributions
 # the dgp. tau quantile of epsilon is 0,
 # so tau quantile of y is x*beta
 function makeQIVdata(beta, tau, n)
-    alpha = [1.0,1.0,1.0]
-    varscale = 5.0
-    alpha = alpha / varscale
-    Xi = randn(n,4)
-    x = [ones(n,1) Xi[:,1] + Xi[:,2]]
-    z = [ones(n,1) Xi[:,2] + Xi[:,3] Xi[:,1] + Xi[:,4]]
+    # instruments correlated with regressors
     m = -quantile(Normal(),tau)
-    v = quantile(Normal(m),rand(n,1)) # tau quantile of v is 0
-    epsilon = exp(((z*alpha) .^ 2.0).*v) - 1.0 #
-    y = x*beta + epsilon
+    epsilon = quantile(Normal(m),rand(n,1)) # tau quantile is 0
+    # component of regressors correlated with inst
+    x = randn(n,1)
+    # inst
+    z = x .+ randn(n,2)
+    z = [ones(n,1) z]
+    # component of regressors correlated with error
+    x = [ones(n,1)  x .+ epsilon]
+    b = [epsilon+beta[1] beta[2]*ones(n,1)]
+    y = sum(x.*b,2)
+    #y = y.*(y.>0.0)
     cholsig = chol(tau*(1.0 -tau)*(z'*z/n))
     xhat = z*(z\x)
     yhat = z*(z\y)
@@ -29,6 +32,7 @@ function aux_stat(beta, otherargs)
     cholsig = otherargs[5]
     beta = reshape(beta,2,1)
     m = mean(z.*(tau - map(Float64,y .<= x*beta)),1)
+    #m = mean(z.*(tau - map(Float64,y .<= max(0.0,x*beta))),1)
     n = size(y,1);
     m = m + randn(size(m))*cholsig/sqrt(n)
     return m
