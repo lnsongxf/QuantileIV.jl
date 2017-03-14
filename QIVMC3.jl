@@ -1,5 +1,5 @@
 using QuantileRegression
-include("QIVmodel2.jl") # load auction model code
+include("QIVmodel3.jl") # load auction model code
 include("AIS.jl") # the adaptive importance sampling algorithm
 include(Pkg.dir()"/MPI/examples/montecarlo.jl")
 
@@ -17,20 +17,25 @@ function QIVWrapper()
     StopCriterion = 5 # stop when proportion of new particles accepted is below this
     AISdraws = 10000
     mix = 0.5 # proportion drawn from AIS, rest is from prior
-    bandwidth = [0.17,0.17] # optimal for RMSE, tuned from prior
+    bandwidth = [1.0,1.0] # guess with more stats
+    #bandwidth = [0.17,0.17] # optimal for RMSE, tuned from prior
     #bandwidth = [0.12, 0.20] # optimal for CI, tuned from prior
     #bandwidth = [0.24, 0.28] # optimal for RMSE, tuned locally
     #bandwidth = [0.135, 0.20] # optimal for CI, tuned locally
     # now implement it
     y,x,z,cholsig,betahatIV = makeQIVdata(beta, tau, n) # draw the data
+println(mean(y))
+println(mean(y.==0.0))
     otherargs = (y,x,z,tau,cholsig)
-    Zn = [0.0 0.0 0.0]
+    m = mean(z.*(tau - map(Float64,y .<= max(0.0,x*beta))),1)
+    #m = m + randn(size(m))*cholsig/sqrt(n)
+    Zn = [m mean(y) mean(y.==0.0) (z\y)' (x\y)']
     contrib = AIS_fit(Zn, nParticles, multiples, StopCriterion, AISdraws, mix, otherargs, bandwidth)
     contrib = [contrib betahatIV']
 end
 
 # the monitoring function
-function QIVMonitor(sofar, results)
+function QIVMonitor(sofar::Int64, results::Array{Float64,2})
     if mod(sofar,10) == 0
         theta = [1. 1.]
         # local constant

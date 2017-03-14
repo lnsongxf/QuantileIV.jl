@@ -6,15 +6,16 @@ function makeQIVdata(beta::Array{Float64,1}, tau::Float64, n::Int64)
     # instruments correlated with regressors
     m = -quantile(Normal(),tau)
     epsilon = quantile(Normal(m),rand(n,1)) # tau quantile is 0
-    # component of regressors correlated with inst
-    x = randn(n,1)
     # inst
-    z = x .+ randn(n,2)
-    z = [ones(n,1) z]
-    # component of regressors correlated with error
-    x = [ones(n,1)  x .+ epsilon]
-    b = [epsilon+beta[1] beta[2]*ones(n,1)]
+    z = [ones(n,1) randn(n,2)]
+    # endogenous regressor from reduced form
+    alpha = [1.0, 1.0, 1.0] # rf coefficients
+    x = z*alpha + 0.5*epsilon + 0.5*randn(n,1) # add rf error, which depends on epsilon
+    x = [ones(n,1) x]
+    # structural eqn for endog of interest
+    b = hcat(epsilon.+beta[1], beta[2]*ones(n,1))
     y = sum(x.*b,2)
+    y = y.*(y.>0.0)
     cholsig = chol(tau*(1.0 -tau)*(z'*z/n))
     xhat = z*(z\x)
     yhat = z*(z\y)
@@ -29,11 +30,15 @@ function aux_stat(beta::Array{Float64,1}, otherargs)
     z = otherargs[3]
     tau = otherargs[4]
     cholsig = otherargs[5]
-    beta = reshape(beta,2,1)
-    m = mean(z.*(tau - map(Float64,y .<= x*beta)),1)
-    n = size(y,1);
-    m = m + randn(size(m))*cholsig/sqrt(n)
-    return m
+    n = 200
+    #beta = reshape(beta,2,1)
+    m = mean(z.*(tau - map(Float64,y .<= max(0.0,x*beta))),1)
+    #m = m + randn(size(m))*cholsig/sqrt(n)
+    yy,xx,zz,junk,betahatIV = makeQIVdata(beta, tau, n) # draw the data
+    b = zz\yy
+    bb = xx\yy
+    mm = [m mean(yy) mean(yy.==0.0) b' bb'] 
+    return mm
 end
 
 # this function generates a draw from the prior

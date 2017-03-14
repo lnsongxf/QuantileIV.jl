@@ -19,15 +19,15 @@ include("LocalPolynomial.jl")
 # sample from particles: normal perturbation of a 
 # single parameter, with bounds enforcement by rejection
 # sampling
-function sample_from_particles(particles::Array{Float64,2}, delta::Array{Float64,2} )
+function sample_from_particles(particles::Array{Float64,2}, delta::Array{Float64,1})
 	n, k = size(particles)
     i = rand(1:n)
 	j = rand(1:k)
     ok = false
-    theta_s = similar(particles[[i],:])
+    theta_s = similar(particles[i,:])
     @inbounds while ok != true
-        theta_s = particles[[i],:]
-        theta_s[:,[j]] = theta_s[:,[j]] + delta[:,[j]]*randn()
+        theta_s = particles[i,:]
+        theta_s[[j]] += delta[j]*randn(1)
         ok, junk, junk = check_in_support(theta_s)
     end    
     return theta_s
@@ -36,9 +36,9 @@ end
 # sample from AIS density: choose random particle,
 # add a MVN perturbation
 function sample_from_AIS(particles::Array{Float64,2})
-    delta = 1.0*std(particles,1)
+    delta = vec(std(particles,1))
 	i = rand(1:size(particles,1))
-    theta_s = particles[[i],:]
+    theta_s = particles[i,:]
     theta_s = theta_s + delta.*randn(size(delta))
     return theta_s
 end
@@ -53,11 +53,11 @@ function AIS_density(theta::Array{Float64,2}, particles::Array{Float64,2})
     dens = zeros(nthetas,1)
     @inbounds for i = 1:nparticles
         @inbounds for j = 1:nthetas
-            thetaj = theta[[j],:]
+            thetaj = theta[j,:]
             thetaj2 = vec(thetaj)
             mu = vec(particles[[i],:])
             d = MvNormal(mu, sig)
-            dens[[j],1] += pdf(d, thetaj2)
+            dens[j,1] += pdf(d, thetaj2)
         end
     end
     dens = dens/nparticles
@@ -67,7 +67,7 @@ end
 # the fitting routine: KNN regression, either local linear
 # (default) or local constant, weighted by importance sampling
 # weights from the AIS density
-function AIS_fit(Zn, nParticles, multiples, StopCriterion, AISdraws, mix, otherargs, bandwidth)
+function AIS_fit(Zn::Array{Float64,2}, nParticles::Int64, multiples::Int64, StopCriterion::Int64, AISdraws::Int64, mix::Float64, otherargs, bandwidth::Array{Float64,1})
     # do AIS to get particles
     particles, Zs = AIS_algorithm(nParticles, multiples, StopCriterion, Zn, otherargs)
     # sample from AIS particles
@@ -75,15 +75,16 @@ function AIS_fit(Zn, nParticles, multiples, StopCriterion, AISdraws, mix, othera
     Zs = zeros(AISdraws, size(Zn,2))
     @inbounds for i = 1:AISdraws
         if rand() < mix
-            thetas[[i],:] = sample_from_AIS(particles)
+            thetas[i,:] = sample_from_AIS(particles)
         else    
-            thetas[[i],:] = sample_from_prior()
+            thetas[i,:] = sample_from_prior()
         end
-        Zs[i,:] = aux_stat(thetas[i,:],otherargs)
+        Zs[i,:] = aux_stat(vec(thetas[i,:]),otherargs)
     end    
     # compute scaling limiting outliers
-    cholsig = otherargs[4]
-    Zs = Zs*inv(cholsig)
+    #cholsig = otherargs[5]
+    #println(size(cholsig))
+    #Zs = Zs*inv(cholsig)
     stdZ = std(Zs,1)
 	Zs = Zs ./ stdZ
     if size(bandwidth) == ()
@@ -92,7 +93,7 @@ function AIS_fit(Zn, nParticles, multiples, StopCriterion, AISdraws, mix, othera
     else
         weights = zeros(size(Zs,1),size(thetas,2))
         for i = 1:size(bandwidth,1)
-            weights[:,[i]] = prod(pdf(Normal(),(Zs.-Zn)/bandwidth[i]),2) # kernel weights
+            weights[:,i] = prod(pdf(Normal(),(Zs.-Zn)/bandwidth[i]),2) # kernel weights
         end
     end    
     #AISweights = prior(thetas) ./ ((1. - mix)*prior(thetas) + mix*AIS_density(thetas, particles))
@@ -121,13 +122,13 @@ function GetInitialParticles(nParticles::Int64, otherargs)
     particle = sample_from_prior()
     Z = aux_stat(particle, otherargs)
     Zs = zeros(nParticles, size(Z,2))
-    particles = zeros(nParticles, size(particle,2))
+    particles = zeros(nParticles, size(particle,1))
     particles[1,:] = particle
     Zs[1,:] = Z
     @inbounds for i = 2:nParticles
-        particles[[i],:] = sample_from_prior()
-        Z = aux_stat(particles[[i],:], otherargs)
-        Zs[[i],:]	= Z
+        particles[i,:] = sample_from_prior()
+        Z = aux_stat(vec(particles[i,:]), otherargs)
+        Zs[i,:]	= Z
     end
     return particles, Zs
 end
@@ -141,7 +142,7 @@ function GetNewParticles(particles::Array{Float64,2}, multiple::Int64, otherargs
     Z = aux_stat(particle, otherargs)
     dimZ = size(Z,2)
     newZs = zeros(multiple*nParticles, dimZ)
-    delta = 0.9*std(particles,1)
+    delta = vec(0.9*std(particles,1))
     @inbounds for i = 1:multiple*nParticles
         newparticles[i,:] = sample_from_particles(particles, delta)
         newZs[i,:] = aux_stat(newparticles[i,:], otherargs)
@@ -170,7 +171,7 @@ provided bounds. However, the importance sampling density
 that uses the particles is a mixture of normals, each
 centered on a particle, and the support is R^k. Thus, no
 truncation occurs in the importance sampling density. =# 
-function AIS_algorithm(nParticles::Int64, multiple::Int64, StopCriterion, Zn::Array{Float64,2}, otherargs)
+function AIS_algorithm(nParticles::Int64, multiple::Int64, StopCriterion::Int64, Zn, otherargs)
     # the initial particles
     particles, Zs = GetInitialParticles(nParticles, otherargs)
     # do bounding to compute scale the first time
