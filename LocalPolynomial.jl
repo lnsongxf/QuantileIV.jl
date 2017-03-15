@@ -1,21 +1,38 @@
-# gives local constant conditional mean, and optionally,
-# the median and 0.05 and 0.95 quantiles
+# local constant or local linear regression and quantile regression
+# still need to add local quadratic
 
 # using the interior point method from QuantileRegression package
 include("InteriorPoint.jl") 
 
-function LocalPolynomial(y, X, x0, weights, do_median=false, do_ci=false, order=1)
-test = weights .> 0 # drop obsns with zero weight
-                    # to help the quantile computations
-weights = sqrt(weights[test])
-y = y[vec(test)]
-X = X[vec(test),:]
-X = X .- x0
+function LocalPolynomial(y::Array{Float64,1}, X::Array{Float64,2}, x0::Array{Float64,2}, weights::Array{Float64,1}, order::Int64=1, do_median::Bool=false, do_ci::Bool=false)
 
-X = [ones(size(X,1),1) X]
-X = weights.*X
-y = weights.*y
-ymean = (X\y)[1,:]
+test = vec(weights .> 0) # drop obsns with zero weights to help the quantile computations
+weights = sqrt(weights[test])
+y = y[test]
+X = X[test,:]
+
+if order == 0
+    n = size(y,1)
+    X = reshape(weights,n,1)
+    y .*= weights
+    ymean = sum(weights.*y)
+end    
+                 
+if order == 1
+    X = X .- x0
+    X = [ones(size(X,1),1) X]
+    X .*= weights
+    y .*= weights
+    ymean = (X\y)[1,:]
+end    
+
+if order == 2
+    X = X .- x0
+    X = [ones(size(X,1),1) X X.^2.0]
+    X .*= weights
+    y .*= weights
+    ymean = (X\y)[1,:]
+end  
 
 if do_median
     y50 = qreg_coef(vec(y), X, 0.5,IP())[1,:]

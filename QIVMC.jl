@@ -31,7 +31,7 @@ end
 
 # the monitoring function
 function QIVMonitor(sofar, results)
-    if mod(sofar,100) == 0
+    if mod(sofar,10) == 0
         theta = [1. 1.]
         # local constant
         m = mean(results[1:sofar,[1;5]],1)

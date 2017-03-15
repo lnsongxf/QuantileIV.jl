@@ -7,13 +7,10 @@ Z = aux_stat(theta, otherargs): computes aux. stats, given parameter
 d = prior(theta): computes prior density at parameter value
 theta = sample_from_prior(): generate a draw from prior
 ok = check_in_supporttheta): bool checking if param in prior's support
-
-see Auction.jl for an example
 =#
 
 using Distributions
 using Distances
-include("LocalConstant.jl")
 include("LocalPolynomial.jl")
 
 # sample from particles: normal perturbation of a 
@@ -39,7 +36,7 @@ function sample_from_AIS(particles::Array{Float64,2})
     delta = vec(std(particles,1))
 	i = rand(1:size(particles,1))
     theta_s = particles[i,:]
-    theta_s = theta_s + delta.*randn(size(delta))
+    theta_s += delta.*randn(size(delta))
     return theta_s
 end
 
@@ -54,10 +51,9 @@ function AIS_density(theta::Array{Float64,2}, particles::Array{Float64,2})
     @inbounds for i = 1:nparticles
         @inbounds for j = 1:nthetas
             thetaj = theta[j,:]
-            thetaj2 = vec(thetaj)
-            mu = vec(particles[[i],:])
+            mu = particles[i,:]
             d = MvNormal(mu, sig)
-            dens[j,1] += pdf(d, thetaj2)
+            dens[j,1] += pdf(d, thetaj)
         end
     end
     dens = dens/nparticles
@@ -82,18 +78,14 @@ function AIS_fit(Zn::Array{Float64,2}, nParticles::Int64, multiples::Int64, Stop
         Zs[i,:] = aux_stat(vec(thetas[i,:]),otherargs)
     end    
     # compute scaling limiting outliers
-    #cholsig = otherargs[5]
-    #println(size(cholsig))
-    #Zs = Zs*inv(cholsig)
     stdZ = std(Zs,1)
-	Zs = Zs ./ stdZ
     if size(bandwidth) == ()
-        weights = prod(pdf(Normal(),(Zs.-Zn)/bandwidth),2) # kernel weights
+        weights = prod(pdf(Normal(),((Zs.-Zn)./stdZ)/bandwidth),2) # kernel weights
         weights = weights*ones(1,size(thetas,2)) # expand out
     else
         weights = zeros(size(Zs,1),size(thetas,2))
         for i = 1:size(bandwidth,1)
-            weights[:,i] = prod(pdf(Normal(),(Zs.-Zn)/bandwidth[i]),2) # kernel weights
+            weights[:,i] = prod(pdf(Normal(),((Zs.-Zn)./stdZ)/bandwidth[i]),2) # kernel weights
         end
     end    
     #AISweights = prior(thetas) ./ ((1. - mix)*prior(thetas) + mix*AIS_density(thetas, particles))
@@ -109,13 +101,12 @@ function AIS_fit(Zn::Array{Float64,2}, nParticles::Int64, multiples::Int64, Stop
     ll_fit = -999. *ones(1,4*params)
     if size(weights,1) > AISdraws/100.
         for i = 1:params
-            lc_fit[:,(i*4-4+1):i*4] = LocalConstant(vec(thetas[:,i]), Zs, Zn, weights[:,[i]], true, true)
-            ll_fit[:,(i*4-4+1):i*4] = LocalPolynomial(vec(thetas[:,i]), Zs, Zn, weights[:,[i]], true, true)
+            lc_fit[:,(i*4-4+1):i*4] = LocalPolynomial(thetas[:,i], Zs, Zn, weights[:,i], 0, true, true)
+            ll_fit[:,(i*4-4+1):i*4] = LocalPolynomial(thetas[:,i], Zs, Zn, weights[:,i], 1, true, true)
         end
     end
     return [lc_fit ll_fit]
 end    
-
 
 # Draw particles from prior
 function GetInitialParticles(nParticles::Int64, otherargs)
@@ -127,7 +118,7 @@ function GetInitialParticles(nParticles::Int64, otherargs)
     Zs[1,:] = Z
     @inbounds for i = 2:nParticles
         particles[i,:] = sample_from_prior()
-        Z = aux_stat(vec(particles[i,:]), otherargs)
+        Z = aux_stat(particles[i,:], otherargs)
         Zs[i,:]	= Z
     end
     return particles, Zs
@@ -199,10 +190,8 @@ function AIS_algorithm(nParticles::Int64, multiple::Int64, StopCriterion::Int64,
         Zs = [Zs; newZs]
         particles = [particles; newparticles]
         # find distances
-        cholsig = otherargs[4]
-        ZZs = Zs*inv(cholsig)
-        stdZ = std(ZZs,1)
-        distances = vec(pairwise(Euclidean(),(ZZs./stdZ)', (Zn./stdZ)')) # get all distances
+        stdZ = std(Zs,1)
+        distances = vec(pairwise(Euclidean(),(Zs./stdZ)', (Zn./stdZ)')) # get all distances
         # select from new and old
         new, particles, Zs, distances =  Select(nParticles, distances, particles, Zs)
         #=if DoPlot & (iter <=5)

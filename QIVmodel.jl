@@ -2,7 +2,7 @@ using Distributions
 
 # the dgp. tau quantile of epsilon is 0,
 # so tau quantile of y is x*beta
-function makeQIVdata(beta, tau, n)
+function makeQIVdata(beta::Array{Float64,1}, tau::Float64, n::Int64)
     alpha = [1.0,1.0,1.0]
     varscale = 5.0
     alpha = alpha / varscale
@@ -21,7 +21,7 @@ function makeQIVdata(beta, tau, n)
 end
 
 # the moments
-function aux_stat(beta, otherargs)
+function aux_stat(beta::Array{Float64,1}, otherargs)
     y = otherargs[1]
     x = otherargs[2]
     z = otherargs[3]
@@ -36,26 +36,26 @@ end
 
 # this function generates a draw from the prior
 function sample_from_prior()
-	theta = rand(1,2)
-    lb = [0.0 0.0]
-    ub = [3.0 3.0]
+	theta = rand(2)
+    lb = [0.0; 0.0]
+    ub = [3.0; 3.0]
     theta = (ub-lb).*theta + lb
 end
 
 # the prior: needed to compute AIS density, which uses
 # the prior as a mixture component, to maintain the support
-function prior(theta::Array{Float64,2})
-    lb = [0.0 0.0]
-    ub = [3.0 3.0]
+function prior(theta::Array{Float64,1})
+    lb = [0.0; 0.0]
+    ub = [3.0; 3.0]
     c = 1./prod(ub - lb)
     p = ones(size(theta,1),1)*c
     ok = all((theta.>=lb) & (theta .<=ub),2)
     p = p.*ok
 end    
 
-function check_in_support(theta::Array{Float64,2})
-    lb = [0. 0.]
-    ub = [3. 3.]
+function check_in_support(theta::Array{Float64,1})
+    lb = [0.; 0.]
+    ub = [3.; 3.]
     ok = all((theta .>= lb) & (theta .<= ub))
     return ok, lb, ub
 end

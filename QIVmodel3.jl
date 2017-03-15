@@ -16,11 +16,10 @@ function makeQIVdata(beta::Array{Float64,1}, tau::Float64, n::Int64)
     b = hcat(epsilon.+beta[1], beta[2]*ones(n,1))
     y = sum(x.*b,2)
     y = y.*(y.>0.0)
-    cholsig = chol(tau*(1.0 -tau)*(z'*z/n))
     xhat = z*(z\x)
     yhat = z*(z\y)
     betahatIV = inv(x'*xhat)*x'*yhat
-    return y,x,z,cholsig,betahatIV
+    return y,x,z,betahatIV
 end
 
 # the moments
@@ -29,15 +28,10 @@ function aux_stat(beta::Array{Float64,1}, otherargs)
     x = otherargs[2]
     z = otherargs[3]
     tau = otherargs[4]
-    cholsig = otherargs[5]
     n = 200
-    #beta = reshape(beta,2,1)
     m = mean(z.*(tau - map(Float64,y .<= max(0.0,x*beta))),1)
-    #m = m + randn(size(m))*cholsig/sqrt(n)
-    yy,xx,zz,junk,betahatIV = makeQIVdata(beta, tau, n) # draw the data
-    b = zz\yy
-    bb = xx\yy
-    mm = [m mean(yy) mean(yy.==0.0) b' bb'] 
+    y,x,z,betahatIV = makeQIVdata(beta, tau, n) # draw the data
+    mm = [m mean(y.==0.0) betahatIV'] 
     return mm
 end
 
@@ -46,6 +40,7 @@ function sample_from_prior()
 	theta = rand(2)
     lb = [0.0; 0.0]
     ub = [3.0; 3.0]
+
     theta = (ub-lb).*theta + lb
 end
 
